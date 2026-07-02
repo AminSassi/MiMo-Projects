@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alex Rivera — Video Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#1a1a1a',
+            mist: '#949494',
+            cream: '#f5f3ef',
+            warm: '#e8e4de',
+          },
+          fontFamily: {
+            serif: ['Playfair Display', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: #f5f3ef; color: #1a1a1a; overflow-x: hidden; }
+
+    .hero-text { font-family: 'Playfair Display', serif; }
+
+    /* Scroll-driven fade-in */
+    .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    .reveal-left { opacity: 0; transform: translateX(-60px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal-left.visible { opacity: 1; transform: translateX(0); }
+
+    .reveal-right { opacity: 0; transform: translateX(60px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal-right.visible { opacity: 1; transform: translateX(0); }
+
+    .reveal-scale { opacity: 0; transform: scale(0.92); transition: all 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal-scale.visible { opacity: 1; transform: scale(1); }
+
+    /* Staggered children */
+    .stagger > * { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .stagger.visible > *:nth-child(1) { transition-delay: 0s; opacity: 1; transform: translateY(0); }
+    .stagger.visible > *:nth-child(2) { transition-delay: 0.1s; opacity: 1; transform: translateY(0); }
+    .stagger.visible > *:nth-child(3) { transition-delay: 0.2s; opacity: 1; transform: translateY(0); }
+    .stagger.visible > *:nth-child(4) { transition-delay: 0.3s; opacity: 1; transform: translateY(0); }
+    .stagger.visible > *:nth-child(5) { transition-delay: 0.4s; opacity: 1; transform: translateY(0); }
+    .stagger.visible > *:nth-child(6) { transition-delay: 0.5s; opacity: 1; transform: translateY(0); }
+
+    /* Project card hover */
+    .project-card { cursor: pointer; }
+    .project-card .overlay { opacity: 0; transition: all 0.5s ease; }
+    .project-card:hover .overlay { opacity: 1; }
+    .project-card .play-btn { transform: scale(0.8); opacity: 0; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .project-card:hover .play-btn { transform: scale(1); opacity: 1; }
+    .project-card img { transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+    .project-card:hover img { transform: scale(1.05); }
+
+    /* Marquee */
+    .marquee-track { display: flex; animation: marquee 30s linear infinite; }
+    .marquee-track:hover { animation-play-state: paused; }
+    @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    /* Magnetic cursor */
+    .magnetic { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+    /* Nav */
+    .nav-link { position: relative; }
+    .nav-link::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1px; background: #1a1a1a; transition: width 0.3s ease; }
+    .nav-link:hover::after { width: 100%; }
+
+    /* Smooth scroll indicator */
+    .scroll-indicator { animation: bounce 2s ease infinite; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+
+    /* Grain overlay */
+    .grain::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Video placeholder gradient */
+    .video-placeholder {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3d3d3d 50%, #1a1a1a 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .video-placeholder::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      animation: shimmer 3s ease infinite;
+    }
+    @keyframes shimmer { 0% { left: -100%; } 100% { left: 200%; } }
+
+    /* Horizontal scroll gallery */
+    .gallery-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+    .gallery-scroll::-webkit-scrollbar { display: none; }
+
+    /* Line animation */
+    .line-draw { stroke-dasharray: 1000; stroke-dashoffset: 1000; transition: stroke-dashoffset 1.5s cubic-bezier(0.16, 1, 0.3, 1); }
+    .line-draw.visible { stroke-dashoffset: 0; }
+  </style>
+</head>
+<body class="grain">
+
+  <!-- Nav -->
+  <nav class="fixed top-0 left-0 w-full z-50 px-6 md:px-12 py-5 flex items-center justify-between mix-blend-difference text-white">
+    <a href="#" class="text-lg font-serif font-semibold tracking-tight magnetic">Alex Rivera</a>
+    <div class="hidden md:flex items-center gap-8 text-sm font-light">
+      <a href="#work" class="nav-link magnetic">Work</a>
+      <a href="#about" class="nav-link magnetic">About</a>
+      <a href="#services" class="nav-link magnetic">Services</a>
+      <a href="#contact" class="nav-link magnetic">Contact</a>
+    </div>
+    <button id="menuBtn" class="md:hidden magnetic" aria-label="Menu">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div id="mobileMenu" class="fixed inset-0 bg-ink z-[60] hidden flex flex-col items-center justify-center gap-8 text-white">
+    <button id="closeMenu" class="absolute top-5 right-6" aria-label="Close menu">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <a href="#work" onclick="closeMobileMenu()" class="text-3xl font-serif">Work</a>
+    <a href="#about" onclick="closeMobileMenu()" class="text-3xl font-serif">About</a>
+    <a href="#services" onclick="closeMobileMenu()" class="text-3xl font-serif">Services</a>
+    <a href="#contact" onclick="closeMobileMenu()" class="text-3xl font-serif">Contact</a>
+  </div>
+
+  <!-- Hero -->
+  <section class="min-h-screen flex flex-col justify-end px-6 md:px-12 pb-16 md:pb-24 relative">
+    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div class="w-[300px] h-[300px] md:w-[500px] md:h-[500px] rounded-full bg-mist/10 blur-3xl"></div>
+    </div>
+    <div class="relative z-10 max-w-7xl mx-auto w-full">
+      <p class="text-xs md:text-sm font-light tracking-[0.3em] uppercase text-mist mb-4 reveal">Video Editor & Creative Director</p>
+      <h1 class="hero-text text-5xl md:text-8xl lg:text-[140px] font-bold leading-[0.9] tracking-tight mb-8">
+        <span class="block reveal" style="transition-delay:0.1s">Crafting</span>
+        <span class="block reveal" style="transition-delay:0.2s">Stories</span>
+        <span class="block text-mist reveal" style="transition-delay:0.3s">Through Motion</span>
+      </h1>
+      <div class="flex items-center gap-6 mt-12 reveal" style="transition-delay:0.5s">
+        <a href="#work" class="group flex items-center gap-3 text-sm font-medium magnetic">
+          <span class="w-12 h-12 rounded-full border border-ink/20 flex items-center justify-center group-hover:bg-ink group-hover:text-cream transition-all duration-300">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </span>
+          View Selected Work
+        </a>
+      </div>
+    </div>
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-indicator">
+      <svg class="w-5 h-5 text-mist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </section>
+
+  <!-- Marquee -->
+  <div class="py-6 border-y border-ink/10 overflow-hidden bg-warm/50">
+    <div class="marquee-track whitespace-nowrap">
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Commercial</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Music Videos</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Documentary</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Brand Films</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Social Content</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Color Grading</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Commercial</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Music Videos</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Documentary</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Brand Films</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Social Content</span>
+      <span class="text-mist mx-2">&bull;</span>
+      <span class="hero-text text-2xl md:text-4xl mx-8 text-ink/70">Color Grading</span>
+      <span class="text-mist mx-2">&bull;</span>
+    </div>
+  </div>
+
+  <!-- Selected Work -->
+  <section id="work" class="py-20 md:py-32 px-6 md:px-12">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-end justify-between mb-16">
+        <div>
+          <p class="text-xs tracking-[0.3em] uppercase text-mist mb-3 reveal">Portfolio</p>
+          <h2 class="hero-text text-4xl md:text-6xl font-bold reveal" style="transition-delay:0.1s">Selected Work</h2>
+        </div>
+        <p class="text-sm text-mist hidden md:block reveal" style="transition-delay:0.2s">2022 — 2026</p>
+      </div>
+
+      <!-- Project 1 -->
+      <div class="project-card mb-8 reveal-scale">
+        <div class="relative rounded-2xl overflow-hidden aspect-video video-placeholder">
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-20 h-20 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm">
+              <svg class="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+          <div class="absolute bottom-0 left-0 p-6 md:p-10">
+            <span class="text-xs tracking-[0.2em] uppercase text-white/60 mb-2 block">Nike — Commercial</span>
+            <h3 class="hero-text text-2xl md:text-4xl font-bold text-white mb-2">Beyond the Finish Line</h3>
+            <p class="text-sm text-white/60 max-w-md">30-second brand spot for Nike's 2025 marathon campaign. Shot on RED V-Raptor, edited in DaVinci Resolve.</p>
+          </div>
+          <div class="overlay absolute inset-0 bg-black/20 flex items-center justify-center">
+            <div class="play-btn w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+              <svg class="w-6 h-6 text-ink ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project 2 -->
+      <div class="project-card mb-8 reveal-scale" style="transition-delay:0.1s">
+        <div class="relative rounded-2xl overflow-hidden aspect-video video-placeholder" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-20 h-20 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm">
+              <svg class="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+          <div class="absolute bottom-0 left-0 p-6 md:p-10">
+            <span class="text-xs tracking-[0.2em] uppercase text-white/60 mb-2 block">Apple — Brand Film</span>
+            <h3 class="hero-text text-2xl md:text-4xl font-bold text-white mb-2">Shot on iPhone</h3>
+            <p class="text-sm text-white/60 max-w-md">Director's cut for Apple's "Shot on iPhone" campaign. 3-minute narrative piece following urban photographers.</p>
+          </div>
+          <div class="overlay absolute inset-0 bg-black/20 flex items-center justify-center">
+            <div class="play-btn w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+              <svg class="w-6 h-6 text-ink ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project 3 -->
+      <div class="project-card mb-8 reveal-scale" style="transition-delay:0.2s">
+        <div class="relative rounded-2xl overflow-hidden aspect-video video-placeholder" style="background: linear-gradient(135deg, #2d1b69 0%, #11998e 100%);">
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-20 h-20 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm">
+              <svg class="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+          <div class="absolute bottom-0 left-0 p-6 md:p-10">
+            <span class="text-xs tracking-[0.2em] uppercase text-white/60 mb-2 block">Billie Eilish — Music Video</span>
+            <h3 class="hero-text text-2xl md:text-4xl font-bold text-white mb-2">Midnight Echo</h3>
+            <p class="text-sm text-white/60 max-w-md">Official music video edit. Heavy VFX compositing, custom transitions, and color grading in DaVinci Resolve.</p>
+          </div>
+          <div class="overlay absolute inset-0 bg-black/20 flex items-center justify-center">
+            <div class="play-btn w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+              <svg class="w-6 h-6 text-ink ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-column row -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="project-card reveal-left">
+          <div class="relative rounded-2xl overflow-hidden aspect-[4/3] video-placeholder" style="background: linear-gradient(135deg, #3c1053 0%, #ad5389 100%);">
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="w-14 h-14 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm">
+                <svg class="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+            <div class="absolute bottom-0 left-0 p-6">
+              <span class="text-xs tracking-[0.2em] uppercase text-white/60 mb-1 block">Documentary</span>
+              <h3 class="hero-text text-xl font-bold text-white">Ocean's Last Wave</h3>
+            </div>
+          </div>
+        </div>
+        <div class="project-card reveal-right">
+          <div class="relative rounded-2xl overflow-hidden aspect-[4/3] video-placeholder" style="background: linear-gradient(135deg, #0c0c0c 0%, #1a3a2a 100%);">
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="w-14 h-14 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm">
+                <svg class="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+            <div class="absolute bottom-0 left-0 p-6">
+              <span class="text-xs tracking-[0.2em] uppercase text-white/60 mb-1 block">Social Content</span>
+              <h3 class="hero-text text-xl font-bold text-white">Spotify Wrapped 2025</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about" class="py-20 md:py-32 px-6 md:px-12 bg-ink text-cream">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+      <div class="reveal-left">
+        <div class="aspect-[3/4] rounded-2xl overflow-hidden relative">
+          <div class="absolute inset-0 bg-gradient-to-br from-mist/20 to-mist/5 flex items-center justify-center">
+            <div class="text-center">
+              <div class="w-32 h-32 rounded-full bg-mist/10 mx-auto mb-4 flex items-center justify-center">
+                <svg class="w-16 h-16 text-mist/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="12" cy="10" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+              </div>
+              <p class="text-mist/40 text-sm">Portrait</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal-right">
+        <p class="text-xs tracking-[0.3em] uppercase text-mist mb-4">About</p>
+        <h2 class="hero-text text-4xl md:text-5xl font-bold mb-8 leading-tight">8 years of turning footage into feeling</h2>
+        <div class="space-y-5 text-mist/80 text-base leading-relaxed font-light">
+          <p>I'm Alex Rivera, a video editor and creative director based in Los Angeles. I've worked with brands like Nike, Apple, and Spotify, as well as independent filmmakers and musicians.</p>
+          <p>My approach is story-first. Every cut, every transition, every color grade serves the narrative. I believe the best editing is invisible — it makes you feel without knowing why.</p>
+          <p>Tools: DaVinci Resolve, Premiere Pro, After Effects, Cinema 4D.</p>
+        </div>
+        <div class="mt-10 grid grid-cols-3 gap-8 stagger">
+          <div>
+            <p class="hero-text text-3xl md:text-4xl font-bold">120+</p>
+            <p class="text-sm text-mist/60 mt-1">Projects</p>
+          </div>
+          <div>
+            <p class="hero-text text-3xl md:text-4xl font-bold">8</p>
+            <p class="text-sm text-mist/60 mt-1">Years</p>
+          </div>
+          <div>
+            <p class="hero-text text-3xl md:text-4xl font-bold">40+</p>
+            <p class="text-sm text-mist/60 mt-1">Clients</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section id="services" class="py-20 md:py-32 px-6 md:px-12">
+    <div class="max-w-7xl mx-auto">
+      <p class="text-xs tracking-[0.3em] uppercase text-mist mb-3 reveal">What I Do</p>
+      <h2 class="hero-text text-4xl md:text-6xl font-bold mb-16 reveal" style="transition-delay:0.1s">Services</h2>
+      <div class="space-y-0 stagger">
+        <div class="group border-t border-ink/10 py-8 flex items-center justify-between cursor-pointer hover:px-6 transition-all duration-500">
+          <div class="flex items-center gap-6">
+            <span class="text-mist text-sm font-mono">01</span>
+            <h3 class="hero-text text-2xl md:text-3xl font-semibold group-hover:pl-4 transition-all duration-300">Video Editing</h3>
+          </div>
+          <svg class="w-5 h-5 text-mist group-hover:rotate-45 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </div>
+        <div class="group border-t border-ink/10 py-8 flex items-center justify-between cursor-pointer hover:px-6 transition-all duration-500">
+          <div class="flex items-center gap-6">
+            <span class="text-mist text-sm font-mono">02</span>
+            <h3 class="hero-text text-2xl md:text-3xl font-semibold group-hover:pl-4 transition-all duration-300">Color Grading</h3>
+          </div>
+          <svg class="w-5 h-5 text-mist group-hover:rotate-45 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </div>
+        <div class="group border-t border-ink/10 py-8 flex items-center justify-between cursor-pointer hover:px-6 transition-all duration-500">
+          <div class="flex items-center gap-6">
+            <span class="text-mist text-sm font-mono">03</span>
+            <h3 class="hero-text text-2xl md:text-3xl font-semibold group-hover:pl-4 transition-all duration-300">Motion Graphics</h3>
+          </div>
+          <svg class="w-5 h-5 text-mist group-hover:rotate-45 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </div>
+        <div class="group border-t border-ink/10 py-8 flex items-center justify-between cursor-pointer hover:px-6 transition-all duration-500">
+          <div class="flex items-center gap-6">
+            <span class="text-mist text-sm font-mono">04</span>
+            <h3 class="hero-text text-2xl md:text-3xl font-semibold group-hover:pl-4 transition-all duration-300">Creative Direction</h3>
+          </div>
+          <svg class="w-5 h-5 text-mist group-hover:rotate-45 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </div>
+        <div class="group border-t border-b border-ink/10 py-8 flex items-center justify-between cursor-pointer hover:px-6 transition-all duration-500">
+          <div class="flex items-center gap-6">
+            <span class="text-mist text-sm font-mono">05</span>
+            <h3 class="hero-text text-2xl md:text-3xl font-semibold group-hover:pl-4 transition-all duration-300">Sound Design</h3>
+          </div>
+          <svg class="w-5 h-5 text-mist group-hover:rotate-45 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonial -->
+  <section class="py-20 md:py-32 px-6 md:px-12 bg-warm/50">
+    <div class="max-w-4xl mx-auto text-center reveal">
+      <svg class="w-10 h-10 text-mist/30 mx-auto mb-8" viewBox="0 0 24 24" fill="currentColor"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
+      <blockquote class="hero-text text-2xl md:text-4xl font-medium leading-relaxed mb-8">"Alex doesn't just edit video — he edits emotion. Every project feels like it was made by someone who truly understands the power of visual storytelling."</blockquote>
+      <div>
+        <p class="font-semibold">Sarah Chen</p>
+        <p class="text-sm text-mist">Creative Director, Nike</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact" class="py-20 md:py-32 px-6 md:px-12">
+    <div class="max-w-7xl mx-auto">
+      <p class="text-xs tracking-[0.3em] uppercase text-mist mb-3 reveal">Get in Touch</p>
+      <h2 class="hero-text text-4xl md:text-7xl font-bold mb-12 reveal" style="transition-delay:0.1s">
+        Let's create<br>something <span class="text-mist">together</span>
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+        <div class="reveal-left">
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs tracking-[0.2em] uppercase text-mist mb-2">Email</p>
+              <a href="mailto:hello@alexrivera.edit" class="text-xl font-medium hover:text-mist transition-colors magnetic">hello@alexrivera.edit</a>
+            </div>
+            <div>
+              <p class="text-xs tracking-[0.2em] uppercase text-mist mb-2">Location</p>
+              <p class="text-xl font-medium">Los Angeles, CA</p>
+            </div>
+            <div>
+              <p class="text-xs tracking-[0.2em] uppercase text-mist mb-2">Availability</p>
+              <p class="text-xl font-medium text-primary">Open for projects</p>
+            </div>
+          </div>
+          <div class="flex gap-4 mt-10">
+            <a href="#" class="w-10 h-10 rounded-full border border-ink/20 flex items-center justify-center hover:bg-ink hover:text-cream transition-all magnetic" aria-label="Vimeo">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.084 3.501-3.128C5.08 2.701 6.266 1.984 7.055 1.91c1.867-.18 3.016 1.1 3.447 3.838.465 2.953.789 4.789.971 5.507.539 2.45 1.131 3.674 1.776 3.674.502 0 1.256-.796 2.265-2.385 1.004-1.589 1.54-2.797 1.612-3.628.144-1.371-.395-2.061-1.614-2.061-.574 0-1.167.121-1.777.391 1.186-3.868 3.434-5.757 6.762-5.637 2.473.06 3.628 1.664 3.493 4.797l-.013.01z"/></svg>
+            </a>
+            <a href="#" class="w-10 h-10 rounded-full border border-ink/20 flex items-center justify-center hover:bg-ink hover:text-cream transition-all magnetic" aria-label="Instagram">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5"/></svg>
+            </a>
+            <a href="#" class="w-10 h-10 rounded-full border border-ink/20 flex items-center justify-center hover:bg-ink hover:text-cream transition-all magnetic" aria-label="LinkedIn">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+            </a>
+          </div>
+        </div>
+        <div class="reveal-right">
+          <form id="contactForm" class="space-y-5">
+            <div>
+              <label class="block text-xs tracking-[0.2em] uppercase text-mist mb-2">Name</label>
+              <input type="text" id="contactName" placeholder="Your name" class="w-full bg-transparent border-b border-ink/20 py-3 text-base focus:outline-none focus:border-ink transition-colors placeholder:text-mist/40">
+            </div>
+            <div>
+              <label class="block text-xs tracking-[0.2em] uppercase text-mist mb-2">Email</label>
+              <input type="email" id="contactEmail" placeholder="you@email.com" class="w-full bg-transparent border-b border-ink/20 py-3 text-base focus:outline-none focus:border-ink transition-colors placeholder:text-mist/40">
+            </div>
+            <div>
+              <label class="block text-xs tracking-[0.2em] uppercase text-mist mb-2">Project Type</label>
+              <select id="contactType" class="w-full bg-transparent border-b border-ink/20 py-3 text-base focus:outline-none focus:border-ink transition-colors text-ink">
+                <option>Commercial</option>
+                <option>Music Video</option>
+                <option>Documentary</option>
+                <option>Brand Film</option>
+                <option>Social Content</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs tracking-[0.2em] uppercase text-mist mb-2">Message</label>
+              <textarea id="contactMessage" rows="4" placeholder="Tell me about your project..." class="w-full bg-transparent border-b border-ink/20 py-3 text-base focus:outline-none focus:border-ink transition-colors resize-none placeholder:text-mist/40"></textarea>
+            </div>
+            <button type="submit" class="mt-4 group flex items-center gap-3 text-sm font-medium magnetic">
+              <span class="w-12 h-12 rounded-full border border-ink/20 flex items-center justify-center group-hover:bg-ink group-hover:text-cream transition-all duration-300">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </span>
+              Send Message
+            </button>
+          </form>
+          <div id="formSuccess" class="hidden mt-6 p-4 bg-ink/5 rounded-xl text-sm font-medium">Message sent! I'll get back to you within 24 hours.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 px-6 md:px-12 border-t border-ink/10">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="text-sm text-mist">&copy; 2026 Alex Rivera. All rights reserved.</p>
+      <p class="text-sm text-mist">Crafted with care in Los Angeles</p>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger, .line-draw').forEach(el => observer.observe(el));
+
+    // Mobile menu
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    });
+    document.getElementById('closeMenu').addEventListener('click', closeMobileMenu);
+    function closeMobileMenu() {
+      document.getElementById('mobileMenu').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // Magnetic effect
+    document.querySelectorAll('.magnetic').forEach(el => {
+      el.addEventListener('mousemove', (e) => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        el.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'translate(0, 0)';
+      });
+    });
+
+    // Contact form
+    document.getElementById('contactForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('contactName').value.trim();
+      const email = document.getElementById('contactEmail').value.trim();
+      const msg = document.getElementById('contactMessage').value.trim();
+      if (!name || !email || !msg) return;
+      document.getElementById('contactForm').classList.add('hidden');
+      document.getElementById('formSuccess').classList.remove('hidden');
+    });
+
+    // Nav hide on scroll
+    let lastScroll = 0;
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      const current = window.pageYOffset;
+      if (current > lastScroll && current > 100) {
+        nav.style.transform = 'translateY(-100%)';
+        nav.style.transition = 'transform 0.3s ease';
+      } else {
+        nav.style.transform = 'translateY(0)';
+      }
+      lastScroll = current;
+    });
+  </script>
+</body>
+</html>
