@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshCart — Online Grocery Shopping</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { DEFAULT: '#059669', light: '#10B981', dark: '#047857' },
+            accent: { DEFAULT: '#D97706', light: '#F59E0B', dark: '#B45309' },
+            surface: '#F0F8F6',
+            card: '#FFFFFF',
+            muted: '#64748B',
+          },
+          fontFamily: {
+            heading: ['Rubik', 'sans-serif'],
+            body: ['Nunito Sans', 'sans-serif'],
+          },
+          borderRadius: { card: '16px' },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { font-family: 'Nunito Sans', sans-serif; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Rubik', sans-serif; }
+    .cart-badge { animation: pop 0.3s ease; }
+    @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(5,150,105,0.12); }
+    .product-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .btn-primary:active { transform: scale(0.97); }
+    .category-pill.active { background-color: #059669; color: white; }
+    .category-pill { transition: background-color 0.2s ease, color 0.2s ease; }
+    .cart-slide { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .overlay { transition: opacity 0.3s ease; }
+    ::-webkit-scrollbar { height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .toast { animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.5s forwards; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    .checkout-step { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .confetti { animation: confettiFall 1s ease forwards; }
+    @keyframes confettiFall { 0% { opacity: 1; transform: translateY(-20px) rotate(0deg); } 100% { opacity: 0; transform: translateY(60px) rotate(720deg); } }
+    input:focus, select:focus { outline: none; box-shadow: 0 0 0 3px rgba(5,150,105,0.2); border-color: #059669; }
+    .pulse-success { animation: pulseGreen 0.6s ease; }
+    @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(5,150,105,0.4); } 100% { box-shadow: 0 0 0 12px rgba(5,150,105,0); } }
+  </style>
+</head>
+<body class="bg-surface min-h-screen">
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-[100] space-y-2 pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="goHome()">
+          <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+          <span class="text-xl font-bold font-heading text-gray-900">Fresh<span class="text-primary">Cart</span></span>
+        </div>
+
+        <div class="hidden md:flex flex-1 max-w-lg mx-8">
+          <div class="relative w-full">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search for groceries..." class="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-white transition">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <button onclick="toggleCart()" class="relative p-2.5 rounded-full hover:bg-gray-100 transition" aria-label="Shopping cart">
+            <svg class="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+            </svg>
+            <span id="cartCount" class="hidden absolute -top-1 -right-1 bg-accent text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center cart-badge">0</span>
+          </button>
+          <button onclick="document.getElementById('mobileSearch').classList.toggle('hidden')" class="md:hidden p-2.5 rounded-full hover:bg-gray-100 transition" aria-label="Search">
+            <svg class="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="mobileSearch" class="hidden pb-3 md:hidden">
+        <input type="text" id="searchInputMobile" placeholder="Search for groceries..." class="w-full px-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Shop Page -->
+  <div id="shopPage">
+    <section class="bg-gradient-to-br from-primary to-primary-dark text-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+        <div class="max-w-2xl">
+          <h1 class="text-3xl md:text-5xl font-bold font-heading leading-tight mb-4">Fresh groceries<br>delivered to your door</h1>
+          <p class="text-lg text-white/80 mb-8 max-w-md">Farm-fresh produce, pantry staples, and everyday essentials — all in one place. Free delivery on orders over $50.</p>
+          <a href="#products" class="inline-flex items-center gap-2 bg-white text-primary font-semibold px-6 py-3 rounded-full hover:bg-gray-50 transition btn-primary">
+            Shop Now
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h2 class="text-xl font-bold font-heading text-gray-900 mb-4">Shop by Category</h2>
+      <div id="categories" class="flex gap-3 overflow-x-auto pb-2"></div>
+    </section>
+
+    <section id="products" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold font-heading text-gray-900" id="productsTitle">All Products</h2>
+        <span class="text-sm text-muted" id="productCount"></span>
+      </div>
+      <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"></div>
+    </section>
+  </div>
+
+  <!-- Checkout Page -->
+  <div id="checkoutPage" class="hidden">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Steps indicator -->
+      <div class="flex items-center justify-center mb-10">
+        <div class="flex items-center gap-0">
+          <div id="step1Dot" class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center">1</span>
+            <span class="text-sm font-semibold text-primary hidden sm:inline">Shipping</span>
+          </div>
+          <div class="w-12 sm:w-20 h-0.5 bg-gray-200 mx-2"><div id="step1Bar" class="h-full bg-primary transition-all duration-500" style="width:0%"></div></div>
+          <div id="step2Dot" class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-400 text-sm font-bold flex items-center justify-center" id="step2Circle">2</span>
+            <span class="text-sm font-medium text-gray-400 hidden sm:inline" id="step2Label">Payment</span>
+          </div>
+          <div class="w-12 sm:w-20 h-0.5 bg-gray-200 mx-2"><div id="step2Bar" class="h-full bg-primary transition-all duration-500" style="width:0%"></div></div>
+          <div id="step3Dot" class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-400 text-sm font-bold flex items-center justify-center" id="step3Circle">3</span>
+            <span class="text-sm font-medium text-gray-400 hidden sm:inline" id="step3Label">Confirmation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <!-- Form Area -->
+        <div class="lg:col-span-3">
+          <!-- Step 1: Shipping -->
+          <div id="shippingForm" class="checkout-step bg-white rounded-card p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold font-heading mb-6">Shipping Information</h2>
+            <div class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
+                  <input type="text" id="firstName" placeholder="John" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
+                  <input type="text" id="lastName" placeholder="Doe" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+                <input type="email" id="email" placeholder="john@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
+                <input type="tel" id="phone" placeholder="(555) 123-4567" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
+                <input type="text" id="address" placeholder="123 Main St" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">City</label>
+                  <input type="text" id="city" placeholder="New York" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
+                  <input type="text" id="state" placeholder="NY" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">ZIP Code</label>
+                  <input type="text" id="zip" placeholder="10001" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Delivery Instructions (optional)</label>
+                <textarea id="instructions" rows="2" placeholder="Leave at the door, ring bell, etc." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition resize-none"></textarea>
+              </div>
+            </div>
+            <div id="shippingError" class="hidden mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl"></div>
+            <button onclick="goToPayment()" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-semibold hover:bg-primary-dark transition btn-primary">Continue to Payment</button>
+          </div>
+
+          <!-- Step 2: Payment -->
+          <div id="paymentForm" class="hidden checkout-step bg-white rounded-card p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold font-heading mb-6">Payment Method</h2>
+            <div class="space-y-4">
+              <div class="flex gap-3 mb-4">
+                <button onclick="selectPayment('card')" id="payCard" class="flex-1 py-3 px-4 border-2 border-primary rounded-xl text-sm font-semibold bg-primary/5 text-primary transition">Credit Card</button>
+                <button onclick="selectPayment('paypal')" id="payPal" class="flex-1 py-3 px-4 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300 transition">PayPal</button>
+              </div>
+
+              <div id="cardFields">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">Card Number</label>
+                  <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1.5">Cardholder Name</label>
+                  <input type="text" id="cardName" placeholder="John Doe" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date</label>
+                    <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">CVV</label>
+                    <input type="text" id="cardCvv" placeholder="123" maxlength="4" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition">
+                  </div>
+                </div>
+              </div>
+
+              <div id="paypalFields" class="hidden">
+                <div class="p-6 bg-blue-50 rounded-xl text-center">
+                  <svg class="w-12 h-12 mx-auto mb-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 2.23A.77.77 0 0 1 5.705 1.6h6.317c2.094 0 3.578.568 4.384 1.69.36.507.582 1.074.657 1.683.078.63.037 1.39-.122 2.26l-.012.064v.57l.444.252a3.21 3.21 0 0 1 .835.636c.328.374.545.817.643 1.31.099.5.067 1.096-.094 1.773l-.003.012c-.228.954-.648 1.758-1.25 2.4-.6.642-1.36 1.113-2.263 1.405-.864.28-1.87.42-3.002.42h-.61a1.48 1.48 0 0 0-1.463 1.247l-.048.268-.748 4.732-.033.188a1.48 1.48 0 0 1-1.463 1.247z"/></svg>
+                  <p class="text-sm text-blue-700 font-medium">You'll be redirected to PayPal to complete your purchase</p>
+                </div>
+              </div>
+            </div>
+            <div id="paymentError" class="hidden mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl"></div>
+            <div class="flex gap-3 mt-6">
+              <button onclick="goToShipping()" class="px-6 py-3 border border-gray-200 rounded-full font-semibold text-gray-600 hover:bg-gray-50 transition">Back</button>
+              <button onclick="placeOrder()" class="flex-1 bg-primary text-white py-3 rounded-full font-semibold hover:bg-primary-dark transition btn-primary">Place Order</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Confirmation -->
+          <div id="confirmationPage" class="hidden checkout-step bg-white rounded-card p-8 shadow-sm border border-gray-100 text-center">
+            <div class="relative inline-block mb-6">
+              <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <svg class="w-10 h-10 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="absolute -top-1 -right-1 text-2xl confetti">🎉</span>
+              <span class="absolute -bottom-1 -left-2 text-xl confetti" style="animation-delay:0.2s">🎉</span>
+            </div>
+            <h2 class="text-2xl font-bold font-heading text-gray-900 mb-2">Order Confirmed!</h2>
+            <p class="text-muted mb-2">Thank you for shopping with FreshCart.</p>
+            <p class="text-sm text-muted mb-6">Order <span class="font-mono font-semibold text-gray-900" id="orderNumber"></span></p>
+            <div class="bg-gray-50 rounded-xl p-4 mb-6 text-left">
+              <p class="text-sm font-semibold text-gray-700 mb-2">Delivery Details</p>
+              <p class="text-sm text-muted" id="confirmAddress"></p>
+              <p class="text-sm text-muted mt-1">Estimated delivery: <span class="font-semibold text-primary">Today, 2:00 - 4:00 PM</span></p>
+            </div>
+            <div id="confirmItems" class="text-left mb-6"></div>
+            <div class="border-t pt-4 mb-6">
+              <div class="flex justify-between text-sm mb-1"><span class="text-muted">Subtotal</span><span id="confirmSubtotal"></span></div>
+              <div class="flex justify-between text-sm mb-1"><span class="text-muted">Delivery</span><span class="text-primary font-medium">Free</span></div>
+              <div class="flex justify-between text-base font-bold font-heading"><span>Total</span><span id="confirmTotal"></span></div>
+            </div>
+            <button onclick="goHome()" class="w-full bg-primary text-white py-3 rounded-full font-semibold hover:bg-primary-dark transition btn-primary">Continue Shopping</button>
+          </div>
+        </div>
+
+        <!-- Order Summary Sidebar -->
+        <div class="lg:col-span-2">
+          <div id="orderSummarySidebar" class="bg-white rounded-card p-6 shadow-sm border border-gray-100 sticky top-24">
+            <h3 class="font-bold font-heading mb-4">Order Summary</h3>
+            <div id="summaryItems" class="space-y-3 max-h-64 overflow-y-auto mb-4"></div>
+            <div class="border-t pt-4 space-y-2">
+              <div class="flex justify-between text-sm"><span class="text-muted">Subtotal</span><span id="summarySubtotal" class="font-semibold"></span></div>
+              <div class="flex justify-between text-sm"><span class="text-muted">Delivery</span><span class="text-primary font-medium">Free</span></div>
+              <div class="flex justify-between text-base font-bold font-heading border-t pt-2"><span>Total</span><span id="summaryTotal"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart Overlay -->
+  <div id="cartOverlay" class="overlay fixed inset-0 bg-black/40 z-40 hidden opacity-0" onclick="toggleCart()"></div>
+
+  <!-- Cart Sidebar -->
+  <div id="cartSidebar" class="cart-slide fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white shadow-2xl z-50 transform translate-x-full flex flex-col">
+    <div class="flex items-center justify-between p-5 border-b">
+      <h2 class="text-lg font-bold font-heading">Your Cart</h2>
+      <button onclick="toggleCart()" class="p-2 rounded-full hover:bg-gray-100 transition" aria-label="Close cart">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="cartItems" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
+    <div id="cartEmpty" class="flex-1 flex flex-col items-center justify-center text-muted">
+      <svg class="w-16 h-16 mb-3 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+      </svg>
+      <p class="font-medium">Your cart is empty</p>
+      <p class="text-sm mt-1">Add some fresh groceries!</p>
+    </div>
+    <div id="cartFooter" class="hidden border-t p-5 space-y-3">
+      <div class="flex justify-between text-sm"><span class="text-muted">Subtotal</span><span id="cartSubtotal" class="font-semibold"></span></div>
+      <div class="flex justify-between text-sm"><span class="text-muted">Delivery</span><span class="text-primary font-medium">Free</span></div>
+      <div class="flex justify-between text-base font-bold font-heading border-t pt-3"><span>Total</span><span id="cartTotal"></span></div>
+      <button onclick="goToCheckout()" class="w-full bg-primary text-white py-3 rounded-full font-semibold hover:bg-primary-dark transition btn-primary">Proceed to Checkout</button>
+    </div>
+  </div>
+
+  <!-- Page Modal -->
+  <div id="pageModal" class="fixed inset-0 z-[90] hidden">
+    <div class="absolute inset-0 bg-black/40" onclick="closeModal()"></div>
+    <div class="relative h-full overflow-y-auto bg-surface">
+      <div class="sticky top-0 bg-white shadow-sm z-10">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+          <h2 id="modalTitle" class="font-bold font-heading text-gray-900"></h2>
+          <button onclick="closeModal()" class="p-2 rounded-full hover:bg-gray-100 transition" aria-label="Close">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="modalContent" class="max-w-3xl mx-auto px-4 sm:px-6 py-8"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer id="siteFooter" class="bg-white border-t mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            <span class="font-bold font-heading text-gray-900">Fresh<span class="text-primary">Cart</span></span>
+          </div>
+          <p class="text-sm text-muted">Fresh groceries delivered to your doorstep. Quality guaranteed.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold font-heading text-gray-900 mb-3">Shop</h4>
+          <ul class="space-y-2 text-sm text-muted">
+            <li><a href="#" onclick="event.preventDefault();openModal('allProducts')" class="hover:text-primary transition">All Products</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('newArrivals')" class="hover:text-primary transition">New Arrivals</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('bestSellers')" class="hover:text-primary transition">Best Sellers</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('deals')" class="hover:text-primary transition">Deals</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold font-heading text-gray-900 mb-3">Support</h4>
+          <ul class="space-y-2 text-sm text-muted">
+            <li><a href="#" onclick="event.preventDefault();openModal('helpCenter')" class="hover:text-primary transition">Help Center</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('deliveryInfo')" class="hover:text-primary transition">Delivery Info</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('returns')" class="hover:text-primary transition">Returns</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('contactUs')" class="hover:text-primary transition">Contact Us</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold font-heading text-gray-900 mb-3">Company</h4>
+          <ul class="space-y-2 text-sm text-muted">
+            <li><a href="#" onclick="event.preventDefault();openModal('aboutUs')" class="hover:text-primary transition">About Us</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('careers')" class="hover:text-primary transition">Careers</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('privacyPolicy')" class="hover:text-primary transition">Privacy Policy</a></li>
+            <li><a href="#" onclick="event.preventDefault();openModal('terms')" class="hover:text-primary transition">Terms of Service</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t mt-8 pt-6">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p class="text-sm text-muted">&copy; 2026 FreshCart. All rights reserved.</p>
+          <button onclick="openModal('newsletter')" class="text-sm text-primary font-semibold hover:underline">Subscribe to our newsletter</button>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const products = [
+      { id: 1, name: "Organic Bananas", category: "Fruits", price: 1.49, unit: "bunch", emoji: "\ud83c\udf4c", badge: "Organic" },
+      { id: 2, name: "Fresh Avocados", category: "Fruits", price: 2.99, unit: "each", emoji: "\ud83e\udd51", badge: "Ripe" },
+      { id: 3, name: "Strawberries", category: "Fruits", price: 4.99, unit: "500g", emoji: "\ud83c\udf53", badge: "Seasonal" },
+      { id: 4, name: "Blueberries", category: "Fruits", price: 5.49, unit: "250g", emoji: "\ud83c\udf53", badge: "Organic" },
+      { id: 5, name: "Red Apples", category: "Fruits", price: 3.29, unit: "kg", emoji: "\ud83c\udf4e", badge: "" },
+      { id: 6, name: "Baby Spinach", category: "Vegetables", price: 3.49, unit: "200g", emoji: "\ud83e\udd57", badge: "Organic" },
+      { id: 7, name: "Broccoli", category: "Vegetables", price: 2.29, unit: "each", emoji: "\ud83e\udd66", badge: "" },
+      { id: 8, name: "Cherry Tomatoes", category: "Vegetables", price: 3.99, unit: "250g", emoji: "\ud83c\udf45", badge: "Vine-ripened" },
+      { id: 9, name: "Sweet Potatoes", category: "Vegetables", price: 1.99, unit: "kg", emoji: "\ud83c\udf60", badge: "" },
+      { id: 10, name: "Fresh Salmon", category: "Meat & Seafood", price: 12.99, unit: "300g", emoji: "\ud83d\udc1f", badge: "Wild-caught" },
+      { id: 11, name: "Chicken Breast", category: "Meat & Seafood", price: 8.99, unit: "500g", emoji: "\ud83c\udf57", badge: "Free-range" },
+      { id: 12, name: "Ground Beef", category: "Meat & Seafood", price: 7.49, unit: "400g", emoji: "\ud83e\udd69", badge: "" },
+      { id: 13, name: "Sourdough Bread", category: "Bakery", price: 4.49, unit: "loaf", emoji: "\ud83c\udf5e", badge: "Fresh" },
+      { id: 14, name: "Whole Wheat Bread", category: "Bakery", price: 3.29, unit: "loaf", emoji: "\ud83c\udf5e", badge: "" },
+      { id: 15, name: "Croissants", category: "Bakery", price: 5.99, unit: "4-pack", emoji: "\ud83e\udd50", badge: "Butter" },
+      { id: 16, name: "Greek Yogurt", category: "Dairy", price: 4.29, unit: "500g", emoji: "\ud83e\udd5b", badge: "Plain" },
+      { id: 17, name: "Cheddar Cheese", category: "Dairy", price: 6.49, unit: "250g", emoji: "\ud83e\uddc0", badge: "Aged" },
+      { id: 18, name: "Free-Range Eggs", category: "Dairy", price: 5.99, unit: "12-pack", emoji: "\ud83e\udd5a", badge: "Organic" },
+      { id: 19, name: "Almond Milk", category: "Dairy", price: 3.79, unit: "1L", emoji: "\ud83e\udd5b", badge: "Unsweetened" },
+      { id: 20, name: "Orange Juice", category: "Beverages", price: 4.99, unit: "1L", emoji: "\ud83c\udf4a", badge: "Fresh-pressed" },
+      { id: 21, name: "Sparkling Water", category: "Beverages", price: 1.29, unit: "500ml", emoji: "\ud83d\udca7", badge: "" },
+      { id: 22, name: "Oat Milk", category: "Beverages", price: 4.49, unit: "1L", emoji: "\ud83c\udf75", badge: "Barista" },
+      { id: 23, name: "Dark Chocolate", category: "Snacks", price: 3.99, unit: "100g", emoji: "\ud83c\udf6b", badge: "72% Cacao" },
+      { id: 24, name: "Mixed Nuts", category: "Snacks", price: 7.99, unit: "300g", emoji: "\ud83c\udf31", badge: "Unsalted" },
+      { id: 25, name: "Honeycrisp Apples", category: "Fruits", price: 4.99, unit: "6-pack", emoji: "\ud83c\udf4e", badge: "Premium" },
+      { id: 26, name: "Russet Potatoes", category: "Vegetables", price: 2.49, unit: "2kg", emoji: "\ud83e\udd54", badge: "" },
+      { id: 27, name: "Atlantic Shrimp", category: "Meat & Seafood", price: 14.99, unit: "400g", emoji: "\ud83e\udd90", badge: "Peeled" },
+      { id: 28, name: "Bagels", category: "Bakery", price: 3.99, unit: "6-pack", emoji: "\ud83e\udd6f", badge: "Everything" },
+      { id: 29, name: "Cottage Cheese", category: "Dairy", price: 3.49, unit: "400g", emoji: "\ud83e\uddc0", badge: "" },
+      { id: 30, name: "Kombucha", category: "Beverages", price: 5.49, unit: "500ml", emoji: "\ud83c\udf76", badge: "Ginger" },
+    ];
+
+    const categories = ["All", "Fruits", "Vegetables", "Meat & Seafood", "Bakery", "Dairy", "Beverages", "Snacks"];
+    let activeCategory = "All";
+    let cart = [];
+    let selectedPayment = "card";
+    let currentPage = "shop";
+
+    function showToast(msg, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const bg = type === "success" ? "bg-primary" : type === "error" ? "bg-red-500" : "bg-accent";
+      const icon = type === "success"
+        ? '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        : type === "error"
+        ? '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        : '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+      toast.className = `toast pointer-events-auto flex items-center gap-2 px-4 py-3 ${bg} text-white text-sm font-medium rounded-xl shadow-lg`;
+      toast.innerHTML = `${icon}<span>${msg}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function renderCategories() {
+      const el = document.getElementById("categories");
+      el.innerHTML = categories.map(c => `
+        <button onclick="setCategory('${c}')" class="category-pill flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 ${activeCategory === c ? 'active border-primary' : ''}">
+          ${c}
+        </button>
+      `).join("");
+    }
+
+    function setCategory(cat) { activeCategory = cat; renderCategories(); renderProducts(); }
+
+    function getFilteredProducts() {
+      const query = (document.getElementById("searchInput")?.value || document.getElementById("searchInputMobile")?.value || "").toLowerCase();
+      return products.filter(p => {
+        const matchCat = activeCategory === "All" || p.category === activeCategory;
+        const matchSearch = !query || p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+        return matchCat && matchSearch;
+      });
+    }
+
+    function renderProducts() {
+      const filtered = getFilteredProducts();
+      const grid = document.getElementById("productGrid");
+      document.getElementById("productsTitle").textContent = activeCategory === "All" ? "All Products" : activeCategory;
+      document.getElementById("productCount").textContent = `${filtered.length} items`;
+      grid.innerHTML = filtered.map(p => {
+        const qty = getCartQty(p.id);
+        return `
+        <div class="product-card bg-white rounded-card shadow-sm overflow-hidden border border-gray-100">
+          <div class="relative p-4 pb-2 flex items-center justify-center h-32 bg-gray-50">
+            <span class="text-5xl">${p.emoji}</span>
+            ${p.badge ? `<span class="absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${getBadgeClass(p.badge)}">${p.badge}</span>` : ''}
+          </div>
+          <div class="p-4 pt-3">
+            <h3 class="text-sm font-semibold text-gray-900 leading-snug mb-1">${p.name}</h3>
+            <p class="text-xs text-muted mb-3">${p.unit}</p>
+            <div class="flex items-center justify-between">
+              <span class="text-base font-bold text-gray-900">$${p.price.toFixed(2)}</span>
+              ${qty > 0 ? `
+                <div class="flex items-center gap-2">
+                  <button onclick="updateCart(${p.id}, -1)" class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition text-sm font-bold">-</button>
+                  <span class="text-sm font-semibold w-5 text-center">${qty}</span>
+                  <button onclick="updateCart(${p.id}, 1)" class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark transition text-sm font-bold">+</button>
+                </div>
+              ` : `
+                <button onclick="updateCart(${p.id}, 1)" class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark transition btn-primary" aria-label="Add ${p.name} to cart">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+              `}
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function getBadgeClass(badge) {
+      const map = { 'Organic': 'bg-green-100 text-green-700', 'Seasonal': 'bg-orange-100 text-orange-700', 'Ripe': 'bg-yellow-100 text-yellow-700', 'Fresh': 'bg-blue-100 text-blue-700', 'Wild-caught': 'bg-sky-100 text-sky-700', 'Free-range': 'bg-amber-100 text-amber-700', 'Vine-ripened': 'bg-red-100 text-red-700', 'Butter': 'bg-yellow-100 text-yellow-700', 'Aged': 'bg-orange-100 text-orange-700', 'Plain': 'bg-gray-100 text-gray-600', 'Unsweetened': 'bg-teal-100 text-teal-700', 'Fresh-pressed': 'bg-orange-100 text-orange-700', 'Barista': 'bg-amber-100 text-amber-700', '72% Cacao': 'bg-stone-100 text-stone-700', 'Unsalted': 'bg-green-100 text-green-700', 'Premium': 'bg-purple-100 text-purple-700', 'Peeled': 'bg-sky-100 text-sky-700', 'Everything': 'bg-orange-100 text-orange-700', 'Ginger': 'bg-yellow-100 text-yellow-700' };
+      return map[badge] || 'bg-gray-100 text-gray-600';
+    }
+
+    function getCartQty(id) { const item = cart.find(i => i.id === id); return item ? item.qty : 0; }
+
+    function updateCart(id, delta) {
+      const item = cart.find(i => i.id === id);
+      if (item) {
+        item.qty += delta;
+        if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+      } else if (delta > 0) {
+        const product = products.find(p => p.id === id);
+        cart.push({ ...product, qty: 1 });
+      }
+      renderProducts();
+      renderCart();
+      updateCartCount();
+      if (delta > 0) {
+        const p = products.find(pr => pr.id === id);
+        showToast(`${p.name} added to cart`);
+      }
+    }
+
+    function updateCartCount() {
+      const total = cart.reduce((s, i) => s + i.qty, 0);
+      const badge = document.getElementById("cartCount");
+      badge.textContent = total;
+      badge.classList.toggle("hidden", total === 0);
+    }
+
+    function renderCart() {
+      const itemsEl = document.getElementById("cartItems");
+      const emptyEl = document.getElementById("cartEmpty");
+      const footerEl = document.getElementById("cartFooter");
+      if (cart.length === 0) { itemsEl.classList.add("hidden"); emptyEl.classList.remove("hidden"); footerEl.classList.add("hidden"); return; }
+      emptyEl.classList.add("hidden"); itemsEl.classList.remove("hidden"); footerEl.classList.remove("hidden");
+      itemsEl.innerHTML = cart.map(item => `
+        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+          <span class="text-2xl">${item.emoji}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900 truncate">${item.name}</p>
+            <p class="text-xs text-muted">$${item.price.toFixed(2)} / ${item.unit}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="updateCart(${item.id}, -1)" class="w-7 h-7 rounded-full bg-white border flex items-center justify-center hover:bg-gray-100 transition text-sm font-bold">-</button>
+            <span class="text-sm font-semibold w-5 text-center">${item.qty}</span>
+            <button onclick="updateCart(${item.id}, 1)" class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark transition text-sm font-bold">+</button>
+          </div>
+        </div>
+      `).join("");
+      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      document.getElementById("cartSubtotal").textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById("cartTotal").textContent = `$${subtotal.toFixed(2)}`;
+    }
+
+    function toggleCart() {
+      const sidebar = document.getElementById("cartSidebar");
+      const overlay = document.getElementById("cartOverlay");
+      const isOpen = !sidebar.classList.contains("translate-x-full");
+      if (isOpen) { sidebar.classList.add("translate-x-full"); overlay.classList.add("hidden"); document.body.style.overflow = ""; }
+      else { sidebar.classList.remove("translate-x-full"); overlay.classList.remove("hidden"); setTimeout(() => overlay.style.opacity = "1", 10); document.body.style.overflow = "hidden"; }
+    }
+
+    // --- Navigation ---
+    function goHome() {
+      currentPage = "shop";
+      document.getElementById("shopPage").classList.remove("hidden");
+      document.getElementById("checkoutPage").classList.add("hidden");
+      document.getElementById("orderSummarySidebar").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function goToCheckout() {
+      if (cart.length === 0) { showToast("Your cart is empty!", "error"); return; }
+      toggleCart();
+      setTimeout(() => {
+        currentPage = "checkout";
+        document.getElementById("shopPage").classList.add("hidden");
+        document.getElementById("checkoutPage").classList.remove("hidden");
+        showShippingForm();
+        renderOrderSummary();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 350);
+    }
+
+    function renderOrderSummary() {
+      const el = document.getElementById("summaryItems");
+      el.innerHTML = cart.map(item => `
+        <div class="flex items-center gap-3">
+          <span class="text-lg">${item.emoji}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">${item.name}</p>
+            <p class="text-xs text-muted">Qty: ${item.qty}</p>
+          </div>
+          <span class="text-sm font-semibold">$${(item.price * item.qty).toFixed(2)}</span>
+        </div>
+      `).join("");
+      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      document.getElementById("summarySubtotal").textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById("summaryTotal").textContent = `$${subtotal.toFixed(2)}`;
+    }
+
+    // --- Checkout Steps ---
+    function showShippingForm() {
+      document.getElementById("shippingForm").classList.remove("hidden");
+      document.getElementById("paymentForm").classList.add("hidden");
+      document.getElementById("confirmationPage").classList.add("hidden");
+      updateStepIndicator(1);
+    }
+
+    function showPaymentForm() {
+      document.getElementById("shippingForm").classList.add("hidden");
+      document.getElementById("paymentForm").classList.remove("hidden");
+      document.getElementById("confirmationPage").classList.add("hidden");
+      updateStepIndicator(2);
+    }
+
+    function showConfirmation() {
+      document.getElementById("shippingForm").classList.add("hidden");
+      document.getElementById("paymentForm").classList.add("hidden");
+      document.getElementById("confirmationPage").classList.remove("hidden");
+      document.getElementById("orderSummarySidebar").classList.add("hidden");
+      updateStepIndicator(3);
+    }
+
+    function updateStepIndicator(step) {
+      const c1 = document.getElementById("step1Circle"), c2 = document.getElementById("step2Circle"), c3 = document.getElementById("step3Circle");
+      const l1 = document.getElementById("step1Label"), l2 = document.getElementById("step2Label"), l3 = document.getElementById("step3Label");
+      const b1 = document.getElementById("step1Bar"), b2 = document.getElementById("step2Bar");
+
+      [c1,c2,c3].forEach(c => { c.classList.remove("bg-primary","text-white"); c.classList.add("bg-gray-200","text-gray-400"); });
+      [l1,l2,l3].forEach(l => { l.classList.remove("text-primary","font-semibold"); l.classList.add("text-gray-400","font-medium"); });
+
+      if (step >= 1) { c1.classList.remove("bg-gray-200","text-gray-400"); c1.classList.add("bg-primary","text-white"); l1.classList.remove("text-gray-400","font-medium"); l1.classList.add("text-primary","font-semibold"); }
+      if (step >= 2) { c2.classList.remove("bg-gray-200","text-gray-400"); c2.classList.add("bg-primary","text-white"); l2.classList.remove("text-gray-400","font-medium"); l2.classList.add("text-primary","font-semibold"); b1.style.width = "100%"; }
+      if (step >= 3) { c3.classList.remove("bg-gray-200","text-gray-400"); c3.classList.add("bg-primary","text-white"); l3.classList.remove("text-gray-400","font-medium"); l3.classList.add("text-primary","font-semibold"); b2.style.width = "100%"; }
+      if (step < 2) b1.style.width = "0%";
+      if (step < 3) b2.style.width = "0%";
+    }
+
+    function validateShipping() {
+      const fields = [
+        { id: "firstName", label: "First name" },
+        { id: "lastName", label: "Last name" },
+        { id: "email", label: "Email" },
+        { id: "address", label: "Address" },
+        { id: "city", label: "City" },
+        { id: "state", label: "State" },
+        { id: "zip", label: "ZIP code" },
+      ];
+      const errors = [];
+      fields.forEach(f => {
+        const val = document.getElementById(f.id).value.trim();
+        if (!val) errors.push(`${f.label} is required`);
+      });
+      const email = document.getElementById("email").value.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Please enter a valid email");
+      const errEl = document.getElementById("shippingError");
+      if (errors.length) { errEl.textContent = errors[0]; errEl.classList.remove("hidden"); return false; }
+      errEl.classList.add("hidden");
+      return true;
+    }
+
+    function goToPayment() {
+      if (!validateShipping()) return;
+      showPaymentForm();
+      renderOrderSummary();
+    }
+
+    function goToShipping() { showShippingForm(); renderOrderSummary(); }
+
+    function selectPayment(type) {
+      selectedPayment = type;
+      const cardBtn = document.getElementById("payCard");
+      const palBtn = document.getElementById("payPal");
+      const cardFields = document.getElementById("cardFields");
+      const palFields = document.getElementById("paypalFields");
+      if (type === "card") {
+        cardBtn.classList.add("border-primary","bg-primary/5","text-primary"); cardBtn.classList.remove("border-gray-200","text-gray-600");
+        palBtn.classList.remove("border-primary","bg-primary/5","text-primary"); palBtn.classList.add("border-gray-200","text-gray-600");
+        cardFields.classList.remove("hidden"); palFields.classList.add("hidden");
+      } else {
+        palBtn.classList.add("border-primary","bg-primary/5","text-primary"); palBtn.classList.remove("border-gray-200","text-gray-600");
+        cardBtn.classList.remove("border-primary","bg-primary/5","text-primary"); cardBtn.classList.add("border-gray-200","text-gray-600");
+        palFields.classList.remove("hidden"); cardFields.classList.add("hidden");
+      }
+    }
+
+    function validatePayment() {
+      if (selectedPayment === "card") {
+        const num = document.getElementById("cardNumber").value.replace(/\s/g, "");
+        const name = document.getElementById("cardName").value.trim();
+        const exp = document.getElementById("cardExpiry").value.trim();
+        const cvv = document.getElementById("cardCvv").value.trim();
+        const errors = [];
+        if (!num || num.length < 13) errors.push("Please enter a valid card number");
+        if (!name) errors.push("Cardholder name is required");
+        if (!exp || !/^\d{2}\/\d{2}$/.test(exp)) errors.push("Please enter a valid expiry (MM/YY)");
+        if (!cvv || cvv.length < 3) errors.push("Please enter a valid CVV");
+        const errEl = document.getElementById("paymentError");
+        if (errors.length) { errEl.textContent = errors[0]; errEl.classList.remove("hidden"); return false; }
+        errEl.classList.add("hidden");
+      }
+      return true;
+    }
+
+    function placeOrder() {
+      if (!validatePayment()) return;
+      const btn = event.target;
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="animate-spin w-5 h-5 mx-auto" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" class="opacity-75"/></svg>';
+
+      setTimeout(() => {
+        const orderId = "FC-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById("orderNumber").textContent = orderId;
+
+        const firstName = document.getElementById("firstName").value.trim();
+        const address = document.getElementById("address").value.trim();
+        const city = document.getElementById("city").value.trim();
+        const state = document.getElementById("state").value.trim();
+        const zip = document.getElementById("zip").value.trim();
+        document.getElementById("confirmAddress").textContent = `${firstName} — ${address}, ${city}, ${state} ${zip}`;
+
+        const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+        document.getElementById("confirmSubtotal").textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById("confirmTotal").textContent = `$${subtotal.toFixed(2)}`;
+
+        document.getElementById("confirmItems").innerHTML = cart.map(item => `
+          <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+            <span class="text-lg">${item.emoji}</span>
+            <div class="flex-1"><p class="text-sm font-medium">${item.name}</p><p class="text-xs text-muted">x${item.qty}</p></div>
+            <span class="text-sm font-semibold">$${(item.price * item.qty).toFixed(2)}</span>
+          </div>
+        `).join("");
+
+        cart = [];
+        updateCartCount();
+        renderCart();
+        showConfirmation();
+        showToast("Order placed successfully!");
+        btn.disabled = false;
+        btn.textContent = "Place Order";
+      }, 1500);
+    }
+
+    // Card number formatting
+    document.getElementById("cardNumber")?.addEventListener("input", function(e) {
+      let v = this.value.replace(/\D/g, "").substring(0, 16);
+      this.value = v.replace(/(.{4})/g, "$1 ").trim();
+    });
+
+    document.getElementById("cardExpiry")?.addEventListener("input", function(e) {
+      let v = this.value.replace(/\D/g, "").substring(0, 4);
+      if (v.length > 2) v = v.substring(0, 2) + "/" + v.substring(2);
+      this.value = v;
+    });
+
+    document.getElementById("searchInput")?.addEventListener("input", renderProducts);
+    document.getElementById("searchInputMobile")?.addEventListener("input", renderProducts);
+
+    renderCategories();
+    renderProducts();
+
+    // --- Modal System ---
+    const pages = {
+      allProducts: { title: "All Products", content: () => { activeCategory = "All"; renderCategories(); closeModal(); document.getElementById("products").scrollIntoView({ behavior: "smooth" }); return null; } },
+      newArrivals: { title: "New Arrivals", content: () => {
+        const items = [products[2], products[3], products[15], products[22], products[29]];
+        return `<p class="text-muted mb-6">Check out our latest additions to the store!</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-4">${items.map(p => productCardHTML(p)).join("")}</div>`;
+      }},
+      bestSellers: { title: "Best Sellers", content: () => {
+        const items = [products[0], products[1], products[10], products[12], products[17], products[19]];
+        return `<p class="text-muted mb-6">Our most popular items, loved by thousands of customers.</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-4">${items.map(p => productCardHTML(p)).join("")}</div>`;
+      }},
+      deals: { title: "Weekly Deals", content: () => {
+        const items = [products[2], products[9], products[14], products[23]];
+        return `<div class="bg-accent/10 border border-accent/20 rounded-xl p-4 mb-6 flex items-center gap-3"><svg class="w-6 h-6 text-accent flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><div><p class="font-semibold text-accent">Up to 30% off</p><p class="text-sm text-muted">This week's special offers</p></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-4">${items.map(p => productCardHTML(p, true)).join("")}</div>`;
+      }},
+      helpCenter: { title: "Help Center", content: () => `
+        <div class="space-y-4">
+          <div class="bg-white rounded-xl p-5 border border-gray-100 cursor-pointer hover:border-primary/30 transition" onclick="this.querySelector('.faq-answer').classList.toggle('hidden')">
+            <div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900">How do I track my order?</h3><svg class="w-5 h-5 text-muted flex-shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <p class="faq-answer hidden text-sm text-muted mt-3">Once your order is placed, you'll receive a confirmation email with a tracking link. You can also track your order in real-time from the "My Orders" section of your account.</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-gray-100 cursor-pointer hover:border-primary/30 transition" onclick="this.querySelector('.faq-answer').classList.toggle('hidden')">
+            <div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900">What payment methods do you accept?</h3><svg class="w-5 h-5 text-muted flex-shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <p class="faq-answer hidden text-sm text-muted mt-3">We accept all major credit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, and Google Pay.</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-gray-100 cursor-pointer hover:border-primary/30 transition" onclick="this.querySelector('.faq-answer').classList.toggle('hidden')">
+            <div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900">Can I modify or cancel my order?</h3><svg class="w-5 h-5 text-muted flex-shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <p class="faq-answer hidden text-sm text-muted mt-3">You can modify or cancel your order within 1 hour of placing it. After that, the order enters fulfillment and cannot be changed. Contact support for urgent changes.</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-gray-100 cursor-pointer hover:border-primary/30 transition" onclick="this.querySelector('.faq-answer').classList.toggle('hidden')">
+            <div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900">Is there a minimum order amount?</h3><svg class="w-5 h-5 text-muted flex-shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <p class="faq-answer hidden text-sm text-muted mt-3">There's no minimum order. Orders under $50 have a $4.99 delivery fee. Orders over $50 get free delivery!</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-gray-100 cursor-pointer hover:border-primary/30 transition" onclick="this.querySelector('.faq-answer').classList.toggle('hidden')">
+            <div class="flex items-center justify-between"><h3 class="font-semibold text-gray-900">How do I apply a promo code?</h3><svg class="w-5 h-5 text-muted flex-shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <p class="faq-answer hidden text-sm text-muted mt-3">Enter your promo code at checkout in the "Discount Code" field and click "Apply". The discount will be reflected in your order total.</p>
+          </div>
+        </div>`
+      },
+      deliveryInfo: { title: "Delivery Information", content: () => `
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-4">Delivery Areas</h3>
+            <p class="text-sm text-muted mb-4">We currently deliver to all major metropolitan areas. Enter your ZIP code at checkout to confirm availability.</p>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-primary/5 rounded-lg p-4 text-center"><p class="text-2xl font-bold text-primary">50+</p><p class="text-sm text-muted">Cities served</p></div>
+              <div class="bg-primary/5 rounded-lg p-4 text-center"><p class="text-2xl font-bold text-primary">98%</p><p class="text-sm text-muted">On-time rate</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-4">Delivery Windows</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between py-2 border-b border-gray-100"><span class="text-sm font-medium">Same-Day (Order by 2 PM)</span><span class="text-sm font-semibold text-primary">$4.99</span></div>
+              <div class="flex items-center justify-between py-2 border-b border-gray-100"><span class="text-sm font-medium">Next-Day Morning (8 AM - 12 PM)</span><span class="text-sm font-semibold text-primary">Free over $50</span></div>
+              <div class="flex items-center justify-between py-2 border-b border-gray-100"><span class="text-sm font-medium">Next-Day Afternoon (12 PM - 5 PM)</span><span class="text-sm font-semibold text-primary">Free over $50</span></div>
+              <div class="flex items-center justify-between py-2"><span class="text-sm font-medium">Scheduled (Pick your day)</span><span class="text-sm font-semibold text-primary">Free over $50</span></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-4">Freshness Guarantee</h3>
+            <p class="text-sm text-muted">All produce is sourced within 24 hours of delivery. If any item doesn't meet your freshness expectations, we'll refund you in full — no questions asked.</p>
+          </div>
+        </div>`
+      },
+      returns: { title: "Returns & Refunds", content: () => `
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-3">Our Return Policy</h3>
+            <p class="text-sm text-muted mb-4">We want you to be 100% satisfied with every order. If you're not happy, here's how we make it right:</p>
+            <div class="space-y-4">
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Damaged or Wrong Items</p><p class="text-sm text-muted">Report within 24 hours of delivery for a full refund or replacement.</p></div></div>
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Quality Issues</p><p class="text-sm text-muted">Not satisfied with freshness? We'll refund you in full.</p></div></div>
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Missing Items</p><p class="text-sm text-muted">Missing from your order? We'll deliver it ASAP or refund you.</p></div></div>
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Changed Your Mind</p><p class="text-sm text-muted">Unopened, non-perishable items can be returned within 7 days.</p></div></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-3">How to Request a Refund</h3>
+            <ol class="list-decimal list-inside space-y-2 text-sm text-muted"><li>Go to "My Orders" in your account</li><li>Select the order with the issue</li><li>Click "Request Refund" and describe the problem</li><li>Our team will review within 2 hours</li><li>Refund is processed to your original payment method</li></ol>
+          </div>
+        </div>`
+      },
+      contactUs: { title: "Contact Us", content: () => `
+        <div class="space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white rounded-xl p-5 border border-gray-100 text-center"><div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><svg class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div><p class="font-semibold text-gray-900 text-sm">Phone</p><p class="text-sm text-muted">1-800-FRESH</p></div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 text-center"><div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><svg class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><p class="font-semibold text-gray-900 text-sm">Email</p><p class="text-sm text-muted">hello@freshcart.com</p></div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 text-center"><div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"><svg class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><p class="font-semibold text-gray-900 text-sm">Hours</p><p class="text-sm text-muted">7 AM - 10 PM</p></div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-4">Send us a Message</h3>
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Name</label><input type="text" id="contactName" placeholder="Your name" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" id="contactEmail" placeholder="you@email.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition"></div>
+              </div>
+              <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Subject</label><select id="contactSubject" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition bg-white"><option>General Inquiry</option><option>Order Issue</option><option>Refund Request</option><option>Partnership</option><option>Feedback</option></select></div>
+              <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Message</label><textarea id="contactMessage" rows="4" placeholder="How can we help?" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm transition resize-none"></textarea></div>
+              <button onclick="submitContact()" class="bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-primary-dark transition btn-primary">Send Message</button>
+            </div>
+          </div>
+        </div>`
+      },
+      aboutUs: { title: "About FreshCart", content: () => `
+        <div class="space-y-6">
+          <div class="bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-8 text-white text-center">
+            <h3 class="text-2xl font-bold font-heading mb-2">Our Mission</h3>
+            <p class="text-white/80 max-w-md mx-auto">To make fresh, healthy groceries accessible to everyone, delivered with care and convenience.</p>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center"><p class="text-2xl font-bold text-primary">2020</p><p class="text-xs text-muted mt-1">Founded</p></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center"><p class="text-2xl font-bold text-primary">50+</p><p class="text-xs text-muted mt-1">Cities</p></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center"><p class="text-2xl font-bold text-primary">1M+</p><p class="text-xs text-muted mt-1">Orders</p></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center"><p class="text-2xl font-bold text-primary">4.9</p><p class="text-xs text-muted mt-1">Rating</p></div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-3">Our Story</h3>
+            <p class="text-sm text-muted leading-relaxed">FreshCart started with a simple idea: everyone deserves access to fresh, quality groceries without the hassle of crowded stores. Founded in 2020 by a team of food enthusiasts and tech lovers, we've grown from a small local delivery service to serving over 50 cities nationwide.</p>
+            <p class="text-sm text-muted leading-relaxed mt-3">We partner directly with local farms, bakeries, and producers to bring you the freshest products possible. Every item in our store is hand-selected for quality, and our delivery team is trained to handle your groceries with care.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-3">Our Values</h3>
+            <div class="space-y-3">
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Quality First</p><p class="text-sm text-muted">Every product meets our strict freshness standards.</p></div></div>
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Local Sourcing</p><p class="text-sm text-muted">Supporting local farms and producers.</p></div></div>
+              <div class="flex gap-3"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div><p class="text-sm font-semibold text-gray-900">Community</p><p class="text-sm text-muted">Giving back to the communities we serve.</p></div></div>
+            </div>
+          </div>
+        </div>`
+      },
+      careers: { title: "Careers", content: () => `
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl p-6 border border-gray-100">
+            <h3 class="font-bold font-heading text-gray-900 mb-3">Why FreshCart?</h3>
+            <p class="text-sm text-muted">Join a team that's revolutionizing how people shop for groceries. We're building the future of fresh food delivery, and we need talented people who are passionate about making a difference.</p>
+          </div>
+          <h3 class="font-bold font-heading text-gray-900">Open Positions</h3>
+          <div class="space-y-3">
+            <div class="bg-white rounded-xl p-5 border border-gray-100 flex items-center justify-between hover:border-primary/30 transition cursor-pointer"><div><p class="font-semibold text-gray-900">Senior Frontend Engineer</p><p class="text-sm text-muted">Engineering  ·  Remote  ·  Full-time</p></div><svg class="w-5 h-5 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 flex items-center justify-between hover:border-primary/30 transition cursor-pointer"><div><p class="font-semibold text-gray-900">Product Designer</p><p class="text-sm text-muted">Design  ·  Remote / NYC  ·  Full-time</p></div><svg class="w-5 h-5 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 flex items-center justify-between hover:border-primary/30 transition cursor-pointer"><div><p class="font-semibold text-gray-900">Operations Manager</p><p class="text-sm text-muted">Operations  ·  Chicago  ·  Full-time</p></div><svg class="w-5 h-5 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 flex items-center justify-between hover:border-primary/30 transition cursor-pointer"><div><p class="font-semibold text-gray-900">Delivery Driver</p><p class="text-sm text-muted">Operations  ·  Multiple cities  ·  Part-time</p></div><svg class="w-5 h-5 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>`
+      },
+      privacyPolicy: { title: "Privacy Policy", content: () => `
+        <div class="prose prose-sm max-w-none space-y-4">
+          <p class="text-sm text-muted">Last updated: January 1, 2026</p>
+          <h3 class="font-bold font-heading text-gray-900">1. Information We Collect</h3>
+          <p class="text-sm text-muted">We collect information you provide directly: name, email, address, phone number, payment information, and delivery instructions. We also collect usage data including browsing history, search queries, and device information.</p>
+          <h3 class="font-bold font-heading text-gray-900">2. How We Use Your Information</h3>
+          <p class="text-sm text-muted">We use your information to process orders, deliver products, communicate about your orders, improve our services, and send promotional communications (with your consent).</p>
+          <h3 class="font-bold font-heading text-gray-900">3. Information Sharing</h3>
+          <p class="text-sm text-muted">We share your information with delivery partners to fulfill orders, payment processors to handle transactions, and analytics providers to improve our services. We do not sell your personal information to third parties.</p>
+          <h3 class="font-bold font-heading text-gray-900">4. Data Security</h3>
+          <p class="text-sm text-muted">We implement industry-standard security measures including SSL encryption, secure payment processing (PCI DSS compliant), and regular security audits.</p>
+          <h3 class="font-bold font-heading text-gray-900">5. Your Rights</h3>
+          <p class="text-sm text-muted">You can access, update, or delete your personal information at any time through your account settings. You can also opt out of marketing communications by clicking "Unsubscribe" in any email.</p>
+          <h3 class="font-bold font-heading text-gray-900">6. Contact Us</h3>
+          <p class="text-sm text-muted">For privacy-related inquiries, contact us at privacy@freshcart.com.</p>
+        </div>`
+      },
+      terms: { title: "Terms of Service", content: () => `
+        <div class="prose prose-sm max-w-none space-y-4">
+          <p class="text-sm text-muted">Last updated: January 1, 2026</p>
+          <h3 class="font-bold font-heading text-gray-900">1. Acceptance of Terms</h3>
+          <p class="text-sm text-muted">By using FreshCart, you agree to these Terms of Service. If you do not agree, please do not use our service.</p>
+          <h3 class="font-bold font-heading text-gray-900">2. Account Registration</h3>
+          <p class="text-sm text-muted">You must provide accurate information when creating an account. You are responsible for maintaining the security of your account credentials.</p>
+          <h3 class="font-bold font-heading text-gray-900">3. Ordering & Payment</h3>
+          <p class="text-sm text-muted">All orders are subject to product availability. Prices may vary by location and are subject to change without notice. Payment is charged at the time of order placement.</p>
+          <h3 class="font-bold font-heading text-gray-900">4. Delivery</h3>
+          <p class="text-sm text-muted">Delivery times are estimates and may vary due to weather, traffic, or high demand. We are not liable for delays beyond our reasonable control.</p>
+          <h3 class="font-bold font-heading text-gray-900">5. Returns & Refunds</h3>
+          <p class="text-sm text-muted">Please refer to our Returns Policy for details on refund eligibility and process.</p>
+          <h3 class="font-bold font-heading text-gray-900">6. Limitation of Liability</h3>
+          <p class="text-sm text-muted">FreshCart's total liability shall not exceed the total amount paid for the order in question. We are not liable for indirect, incidental, or consequential damages.</p>
+        </div>`
+      },
+      newsletter: { title: "Newsletter", content: () => `
+        <div class="bg-white rounded-xl p-8 border border-gray-100 text-center">
+          <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4"><svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <h3 class="text-xl font-bold font-heading text-gray-900 mb-2">Stay in the loop</h3>
+          <p class="text-sm text-muted mb-6">Get weekly deals, recipes, and fresh grocery tips delivered to your inbox.</p>
+          <div class="flex gap-2 max-w-md mx-auto">
+            <input type="email" id="newsletterEmail" placeholder="Enter your email" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm transition">
+            <button onclick="subscribeNewsletter()" class="bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-primary-dark transition btn-primary whitespace-nowrap">Subscribe</button>
+          </div>
+          <p id="newsletterMsg" class="hidden text-sm text-primary font-medium mt-3"></p>
+        </div>`
+      },
+    };
+
+    function productCardHTML(p, showDiscount) {
+      const qty = getCartQty(p.id);
+      const discountedPrice = showDiscount ? (p.price * 0.7).toFixed(2) : null;
+      return `
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+        <div class="p-3 flex items-center justify-center h-24 bg-gray-50"><span class="text-4xl">${p.emoji}</span></div>
+        <div class="p-3">
+          <h4 class="text-xs font-semibold text-gray-900 leading-snug mb-1">${p.name}</h4>
+          <p class="text-xs text-muted mb-2">${p.unit}</p>
+          <div class="flex items-center justify-between">
+            <div>${discountedPrice ? `<span class="text-xs text-gray-400 line-through mr-1">$${p.price.toFixed(2)}</span><span class="text-sm font-bold text-accent">$${discountedPrice}</span>` : `<span class="text-sm font-bold text-gray-900">$${p.price.toFixed(2)}</span>`}</div>
+            ${qty > 0 ? `<div class="flex items-center gap-1"><button onclick="updateCart(${p.id}, -1); rerenderModal()" class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">-</button><span class="text-xs font-semibold w-4 text-center">${qty}</span><button onclick="updateCart(${p.id}, 1); rerenderModal()" class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">+</button></div>` : `<button onclick="updateCart(${p.id}, 1); rerenderModal()" class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">+</button>`}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    let currentModal = null;
+    function openModal(page) {
+      const data = pages[page];
+      if (!data) return;
+      const content = data.content();
+      if (content === null) return;
+      currentModal = page;
+      document.getElementById("modalTitle").textContent = data.title;
+      document.getElementById("modalContent").innerHTML = content;
+      document.getElementById("pageModal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+      document.getElementById("pageModal").classList.add("hidden");
+      document.body.style.overflow = "";
+      currentModal = null;
+    }
+
+    function rerenderModal() {
+      if (currentModal && pages[currentModal]) {
+        const content = pages[currentModal].content();
+        if (content !== null) document.getElementById("modalContent").innerHTML = content;
+      }
+    }
+
+    function submitContact() {
+      const name = document.getElementById("contactName")?.value.trim();
+      const email = document.getElementById("contactEmail")?.value.trim();
+      const msg = document.getElementById("contactMessage")?.value.trim();
+      if (!name || !email || !msg) { showToast("Please fill in all fields", "error"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("Please enter a valid email", "error"); return; }
+      showToast("Message sent! We'll get back to you soon.");
+      document.getElementById("contactName").value = "";
+      document.getElementById("contactEmail").value = "";
+      document.getElementById("contactMessage").value = "";
+    }
+
+    function subscribeNewsletter() {
+      const email = document.getElementById("newsletterEmail")?.value.trim();
+      if (!email) { showToast("Please enter your email", "error"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("Please enter a valid email", "error"); return; }
+      document.getElementById("newsletterMsg").textContent = "You're subscribed! Check your inbox for a welcome offer.";
+      document.getElementById("newsletterMsg").classList.remove("hidden");
+      document.getElementById("newsletterEmail").value = "";
+      showToast("Welcome to FreshCart newsletter!");
+    }
+  </script>
+</body>
+</html>
